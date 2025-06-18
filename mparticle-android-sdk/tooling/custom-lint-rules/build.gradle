@@ -1,0 +1,107 @@
+import proguard.gradle.ProGuardTask
+
+apply plugin: 'java-library'
+apply plugin: 'kotlin'
+apply plugin: 'com.android.lint'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+buildscript {
+    ext {
+        lintVersion = '30.1.3'
+    }
+    repositories {
+        mavenCentral()
+        google()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.android.tools.build:gradle:$gradle_version"
+        classpath 'com.guardsquare:proguard-gradle:7.3.0'
+    }
+}
+
+
+repositories {
+    google()
+    maven {
+        url "https://mvnrepository.com/artifact/com.android.tools.lint/lint-tests"
+    }
+}
+
+configurations {
+    lintBuild
+    lintJar
+}
+
+dependencies {
+    lintBuild files(jar)
+    lintJar files('libs/mparticle-min.jar')
+    lintJar project(':tooling:common')
+    implementation configurations.lintJar
+    compileOnly "com.android.tools.lint:lint-api:$lintVersion"
+    compileOnly "com.android.tools.lint:lint-checks:$lintVersion"
+    compileOnly 'org.codehaus.groovy:groovy-all:3.0.13'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation "com.android.tools.lint:lint:$lintVersion"
+    testImplementation "com.android.tools.lint:lint-tests:$lintVersion"
+    testImplementation "com.android.tools:testutils:$lintVersion"
+}
+
+jar {
+    dependsOn(":tooling:common:jar")
+    archiveName 'lint.jar'
+    manifest {
+        attributes 'Manifest-Version': 1.0
+        attributes 'Lint-Registry-v2': 'com.mparticle.lints.MParticleIssueRegistry'
+        attributes 'Lint-Registry': 'com.mparticle.lints.MParticleIssueRegistry'
+    }
+    from {
+        configurations.lintJar.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}
+
+def targetBuildType = "release"
+rootProject.project('android-core').android.buildTypes.all {
+    def theBuildType = it.name
+    if (rootProject.project('android-core').tasks.findByName("compile${theBuildType.capitalize()}JavaWithJavac")) {
+        targetBuildType = theBuildType
+    }
+}
+
+task zipSources(type: Jar) {
+    def fileName = "$project.rootDir/android-core/build/intermediates/javac/${targetBuildType}/classes"
+    from(fileTree(dir: fileName)) {
+        destinationDir new File("$project.projectDir/libs")
+        archiveName "mparticle.jar"
+    }
+    outputs.upToDateWhen { false }
+}
+
+task proguardCore(type: ProGuardTask) {
+    configuration 'mparticle-core-proguard.pro'
+    injars 'libs/mparticle.jar'
+    outjars 'libs/mparticle-min.jar'
+}
+
+afterEvaluate {
+    compileKotlin.dependsOn proguardCore
+    proguardCore.dependsOn zipSources
+    zipSources.dependsOn ":android-core:compile${targetBuildType.capitalize()}JavaWithJavac"
+}
+
+task cleanTempLibraries {
+    File baseMParticle = file('libs/mparticle.jar')
+    File minifiedMParticle = file('libs/mparticle-min.jar')
+    if (baseMParticle.exists()) {
+        baseMParticle.delete()
+    }
+    if (minifiedMParticle.exists()) {
+        minifiedMParticle.delete()
+    }
+}
+
+project.tasks.findByName("clean").dependsOn cleanTempLibraries

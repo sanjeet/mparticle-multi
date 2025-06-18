@@ -1,0 +1,54 @@
+buildscript {
+    ext.kotlin_version = '1.9.0'
+    ext.gradle_version = '7.3.1'
+
+    repositories {
+        mavenCentral()
+        google()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:$gradle_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+plugins {
+    id "org.sonarqube" version "3.5.0.2730"
+    id "org.jlleitschuh.gradle.ktlint" version "11.2.0"
+}
+
+sonarqube {
+    properties {
+        property "sonar.projectKey", "mParticle_mparticle-android-sdk"
+        property "sonar.organization", "mparticle"
+        property "sonar.host.url", "https://sonarcloud.io"
+    }
+}
+
+subprojects {
+    apply plugin: 'org.sonarqube'
+    sonarqube {
+        androidVariant "release"
+    }
+    apply plugin: 'org.jlleitschuh.gradle.ktlint'
+}
+
+allprojects {
+    group = 'com.mparticle'
+    version = '5.69.0-SNAPSHOT'
+    if (project.hasProperty('isRelease') && project.isRelease) {
+        version = version.toString().replace("-SNAPSHOT", "")
+    }
+
+    repositories {
+        mavenLocal()
+        google()
+        mavenCentral()
+    }
+
+    tasks.withType(Javadoc) {
+        options.addStringOption('Xdoclint:none', '-quiet')
+    }
+
+    apply plugin: 'org.jlleitschuh.gradle.ktlint'
+}
