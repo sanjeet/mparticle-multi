@@ -1,0 +1,16 @@
+language: node_js
+node_js:
+    - '10'
+dist: trusty
+sudo: false
+addons:
+    chrome: stable
+    firefox: latest
+cache:
+    directories:
+        - node_modules
+script:
+    - npm install
+    - npm run test
+    - npm run test:integrations
+    - npm run test:stub
