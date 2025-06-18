@@ -1,0 +1,46 @@
+# The below template is adapted from
+# https://github.com/browserstack/github-actions?tab=readme-ov-file#sample-workflow-with-usage-of-both-actions
+
+name: 'BrowserStack Test'
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  browserstack-test:
+    name: 'BrowserStack Test'
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: 'BrowserStack Env Setup'  # Invokes the setup-env action
+        uses: browserstack/github-actions/setup-env@master
+        with:
+          username:  ${{ secrets.BROWSERSTACK_USERNAME }}
+          access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
+      - name: 'BrowserStack Local Tunnel Setup'  # Invokes the setup-local action
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: start
+          local-identifier: random
+
+# The next 3 steps are for building the web application to be tested and starting the web server on the runner environment
+
+      - name: 'Checkout the repository'
+        uses: actions/checkout@v3
+
+      - name: 'Run NPM CI'
+        run: npm ci
+
+      - name: Run Build IIFE
+        run: npm run build:iife
+
+        # ensures the tests are es5 compatible
+      - name: 'Run NPM build:cbt'
+        run: npm run build:cbt
+
+      - name: 'Run Browserstack Tests'
+        run: npm run test:browserstack
+
+      - name: 'BrowserStackLocal Stop'  # Terminating the BrowserStackLocal tunnel connection
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: stop
